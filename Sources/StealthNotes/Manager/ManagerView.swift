@@ -22,7 +22,7 @@ struct ManagerView: View {
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 200)
             .toolbar {
-                ToolbarItem {
+                ToolbarItem(placement: .navigation) {
                     Menu {
                         Button("New Note", action: createNote)
                         Button("Import Markdown…") { showImporter = true }

@@ -31,8 +31,9 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
         let defaults = UserDefaults.standard
         let passThroughByDefault = defaults.object(forKey: SettingsKeys.passThrough) as? Bool ?? true
         let idx = defaults.integer(forKey: SettingsKeys.holdKey)
-        let holdFlags = holdKeyOptions.indices.contains(idx) ? holdKeyOptions[idx].flags : holdKeyOptions[0].flags
-        let held = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask).isSuperset(of: holdFlags)
+        let holdFlags = holdKeyOptions.indices.contains(idx) ? holdKeyOptions[idx].cgFlags : holdKeyOptions[0].cgFlags
+        let current = CGEventSource.flagsState(.combinedSessionState)
+        let held = current.isSuperset(of: holdFlags)
         let ignores = (passThroughByDefault != held)
         for panel in panels.values where panel.ignoresMouseEvents != ignores {
             panel.ignoresMouseEvents = ignores

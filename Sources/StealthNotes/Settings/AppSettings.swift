@@ -103,15 +103,17 @@ enum FontPreset: String, CaseIterable, Identifiable {
 
 struct HoldKeyOption {
     let title: String
-    let flags: NSEvent.ModifierFlags
+    /// Global hardware modifier state — readable even while another app is frontmost,
+    /// unlike NSEvent.modifierFlags which only updates from our own event stream.
+    let cgFlags: CGEventFlags
 }
 
 let holdKeyOptions: [HoldKeyOption] = [
-    HoldKeyOption(title: "⌃⌥ (Control + Option)", flags: [.control, .option]),
-    HoldKeyOption(title: "Fn (Globe)", flags: .function),
-    HoldKeyOption(title: "⌃ Control", flags: .control),
-    HoldKeyOption(title: "⌥ Option", flags: .option),
-    HoldKeyOption(title: "⌘ Command", flags: .command),
+    HoldKeyOption(title: "⌃⌥ (Control + Option)", cgFlags: [.maskControl, .maskAlternate]),
+    HoldKeyOption(title: "Fn (Globe)", cgFlags: .maskSecondaryFn),
+    HoldKeyOption(title: "⌃ Control", cgFlags: .maskControl),
+    HoldKeyOption(title: "⌥ Option", cgFlags: .maskAlternate),
+    HoldKeyOption(title: "⌘ Command", cgFlags: .maskCommand),
 ]
 
 struct HotKeyOption {
