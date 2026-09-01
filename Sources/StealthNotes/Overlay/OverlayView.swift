@@ -10,7 +10,8 @@ struct OverlayView: View {
     @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.sizePreset) private var sizeRaw = SizePreset.regular.rawValue
     @AppStorage(SettingsKeys.dim) private var dim = 0.25
-    @AppStorage(SettingsKeys.opacity) private var cardOpacity = 1.0
+    @AppStorage(SettingsKeys.backgroundOpacity) private var backgroundOpacity = 1.0
+    @AppStorage(SettingsKeys.contentOpacity) private var contentOpacity = 1.0
     @AppStorage(SettingsKeys.renderMarkdown) private var renderMarkdown = true
     @State private var hovering = false
     @State private var appeared = false
@@ -106,20 +107,22 @@ struct OverlayView: View {
             .padding(.horizontal, 14)
             .padding(.top, 10)
         }
+        .opacity(contentOpacity)
         .frame(minWidth: 200, minHeight: 120)
         .background {
             ZStack {
                 VisualEffectBackground(appearance: theme.appearanceName)
                 (theme.isLight ? Color.white : Color.black).opacity(dim)
             }
+            .opacity(backgroundOpacity)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(theme.text.opacity(0.09), lineWidth: 1)
+                .strokeBorder(theme.text.opacity(0.09 * backgroundOpacity), lineWidth: 1)
         )
         .scaleEffect(appeared ? 1 : 0.98)
-        .opacity(appeared ? cardOpacity : 0)
+        .opacity(appeared ? 1 : 0)
         .onAppear {
             withAnimation(.spring(duration: 0.22)) { appeared = true }
         }
