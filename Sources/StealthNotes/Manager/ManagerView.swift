@@ -23,16 +23,15 @@ struct ManagerView: View {
             .navigationSplitViewColumnWidth(min: 170, ideal: 200)
             .toolbar {
                 ToolbarItem {
-                    Button(action: createNote) {
+                    Menu {
+                        Button("New Note", action: createNote)
+                        Button("Import Markdown…") { showImporter = true }
+                    } label: {
                         Label("New Note", systemImage: "square.and.pencil")
+                    } primaryAction: {
+                        createNote()
                     }
-                    .help("New note")
-                }
-                ToolbarItem {
-                    Button { showImporter = true } label: {
-                        Label("Import", systemImage: "square.and.arrow.down")
-                    }
-                    .help("Import Markdown or text files (or just drop them into the window)")
+                    .help("New note — open the menu to import Markdown (or just drop files into the window)")
                 }
             }
             .onChange(of: renameFieldFocused) { _, focused in
