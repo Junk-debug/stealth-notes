@@ -22,11 +22,7 @@ cp -R StealthNotes.app "/Applications/Stealth Notes.app"
 
 ## Icon
 
-The app icon ships as a static asset: `StealthNotes.app/Contents/Resources/AppIcon.icns` (preview in `docs/icon.png`). If you ever want to tweak it, `gen_icon.swift` is the script that originally drew it (CoreGraphics + CIGaussianBlur):
-
-```bash
-swift gen_icon.swift icon_1024.png   # then repack with iconutil
-```
+The app icon is a static asset: `AppIcon.icns` (preview in `docs/icon.png`).
 
 ## Fonts
 

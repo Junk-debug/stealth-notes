@@ -2,7 +2,5 @@
 StealthNotes.app/Contents/MacOS/StealthNotes
 AppIcon.iconset/
 
-# Working file for icon tweaks (the shipped icon is the static AppIcon.icns)
-icon_1024.png
 
 .DS_Store
