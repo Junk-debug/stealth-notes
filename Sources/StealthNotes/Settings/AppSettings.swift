@@ -7,6 +7,7 @@ enum SettingsKeys {
     static let font = "fontPreset"
     static let sizePreset = "overlaySizePreset"
     static let dim = "overlayDim"
+    static let opacity = "overlayCardOpacity"
     static let hotKey = "hotKeyIndex"
     static let passThrough = "passThroughByDefault"
     static let renderMarkdown = "renderMarkdownInOverlays"
@@ -109,11 +110,11 @@ struct HoldKeyOption {
 }
 
 let holdKeyOptions: [HoldKeyOption] = [
-    HoldKeyOption(title: "⌃⌥ (Control + Option)", cgFlags: [.maskControl, .maskAlternate]),
-    HoldKeyOption(title: "Fn (Globe)", cgFlags: .maskSecondaryFn),
     HoldKeyOption(title: "⌃ Control", cgFlags: .maskControl),
     HoldKeyOption(title: "⌥ Option", cgFlags: .maskAlternate),
     HoldKeyOption(title: "⌘ Command", cgFlags: .maskCommand),
+    HoldKeyOption(title: "Fn (Globe)", cgFlags: .maskSecondaryFn),
+    HoldKeyOption(title: "⌃⌥ (Control + Option)", cgFlags: [.maskControl, .maskAlternate]),
 ]
 
 struct HotKeyOption {

@@ -20,6 +20,7 @@ struct AppearanceSettings: View {
     @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.sizePreset) private var sizeRaw = SizePreset.regular.rawValue
     @AppStorage(SettingsKeys.dim) private var dim = 0.25
+    @AppStorage(SettingsKeys.opacity) private var cardOpacity = 1.0
     @AppStorage(SettingsKeys.renderMarkdown) private var renderMarkdown = true
     @AppStorage(SettingsKeys.editorHighlight) private var editorHighlight = true
 
@@ -42,6 +43,13 @@ struct AppearanceSettings: View {
                 Image(systemName: "sun.max")
             } maximumValueLabel: {
                 Image(systemName: "moon")
+            }
+            Slider(value: $cardOpacity, in: 0.35...1.0, step: 0.05) {
+                Text("Transparency")
+            } minimumValueLabel: {
+                Image(systemName: "circle.dotted")
+            } maximumValueLabel: {
+                Image(systemName: "circle.fill")
             }
             Text("Overlays sit on the system HUD material — a real blur of whatever is behind them. Dim controls how much the glass is darkened. Stage size is meant to be readable from a distance.")
                 .font(.callout)
