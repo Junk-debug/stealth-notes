@@ -25,8 +25,7 @@ cp -R StealthNotes.app "/Applications/Stealth Notes.app"
 The app icon is generated programmatically (CoreGraphics + CIGaussianBlur for the frosted-glass effect):
 
 ```bash
-swift gen_icon.swift icon_1024.png        # half-frosted variant (default)
-swift gen_icon.swift icon_full_1024.png full  # fully frosted variant
+swift gen_icon.swift icon_1024.png
 ```
 
 Then pack it:

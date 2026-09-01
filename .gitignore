@@ -3,8 +3,7 @@ StealthNotes.app/Contents/MacOS/StealthNotes
 AppIcon.iconset/
 *.icns
 
-# Generated icons (rebuild with: swift gen_icon.swift <out.png> [full])
+# Generated icons (rebuild with: swift gen_icon.swift <out.png>)
 icon_1024.png
-icon_full_1024.png
 
 .DS_Store

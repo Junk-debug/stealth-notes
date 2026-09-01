@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Carbon.HIToolbox
+import UniformTypeIdentifiers
 
 // MARK: - Model
 
@@ -85,6 +86,15 @@ final class NotesStore: ObservableObject {
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
     }
+
+    /// Imports a .md/.txt file as a new note named after the file. Returns the note name.
+    @discardableResult
+    func importFile(at url: URL) -> String? {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return create(named: url.deletingPathExtension().lastPathComponent, text: text)
+    }
 }
 
 // MARK: - Appearance settings
@@ -124,14 +134,15 @@ enum ThemePreset: String, CaseIterable, Identifiable {
 }
 
 enum FontPreset: String, CaseIterable, Identifiable {
-    case system, rounded, serif, mono
+    case jetbrains, system, rounded, serif, mono
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .jetbrains: return "JetBrains Mono"
         case .system: return "System"
         case .rounded: return "Rounded"
         case .serif: return "Serif"
-        case .mono: return "Monospaced"
+        case .mono: return "SF Mono"
         }
     }
     var design: Font.Design {
@@ -139,8 +150,16 @@ enum FontPreset: String, CaseIterable, Identifiable {
         case .system: return .default
         case .rounded: return .rounded
         case .serif: return .serif
-        case .mono: return .monospaced
+        case .mono, .jetbrains: return .monospaced
         }
+    }
+    static let jetBrainsInstalled = NSFont(name: "JetBrainsMono-Regular", size: 12) != nil
+
+    func font(size: CGFloat) -> Font {
+        if self == .jetbrains, Self.jetBrainsInstalled {
+            return .custom("JetBrainsMono-Regular", size: size)
+        }
+        return .system(size: size, design: design)
     }
 }
 
@@ -150,6 +169,134 @@ enum SettingsKeys {
     static let fontSize = "overlayFontSize"
     static let opacity = "overlayOpacity"
     static let hotKey = "hotKeyIndex"
+    static let passThrough = "passThroughByDefault"
+}
+
+// MARK: - Markdown
+
+enum MDBlock {
+    case heading(String, Int)
+    case bullet(String)
+    case numbered(String, String)
+    case quote(String)
+    case code(String)
+    case paragraph(String)
+    case blank
+}
+
+enum Markdown {
+    /// Notes are split into presentation sections by lines containing only `---`.
+    static func sections(of text: String) -> [String] {
+        var groups: [[String]] = [[]]
+        for line in text.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces) == "---" {
+                groups.append([])
+            } else {
+                groups[groups.count - 1].append(line)
+            }
+        }
+        let sections = groups
+            .map { $0.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return sections.isEmpty ? [text] : sections
+    }
+
+    static func blocks(of text: String) -> [MDBlock] {
+        var result: [MDBlock] = []
+        var codeLines: [String]? = nil
+        for raw in text.components(separatedBy: "\n") {
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") {
+                if let lines = codeLines {
+                    result.append(.code(lines.joined(separator: "\n")))
+                    codeLines = nil
+                } else {
+                    codeLines = []
+                }
+                continue
+            }
+            if codeLines != nil {
+                codeLines!.append(raw)
+                continue
+            }
+            if trimmed.isEmpty { result.append(.blank); continue }
+            if trimmed.hasPrefix("### ") { result.append(.heading(String(trimmed.dropFirst(4)), 3)); continue }
+            if trimmed.hasPrefix("## ") { result.append(.heading(String(trimmed.dropFirst(3)), 2)); continue }
+            if trimmed.hasPrefix("# ") { result.append(.heading(String(trimmed.dropFirst(2)), 1)); continue }
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") { result.append(.bullet(String(trimmed.dropFirst(2)))); continue }
+            if trimmed.hasPrefix("> ") { result.append(.quote(String(trimmed.dropFirst(2)))); continue }
+            if let dot = trimmed.firstIndex(of: "."),
+               !trimmed.hasPrefix("."),
+               trimmed[..<dot].allSatisfy(\.isNumber),
+               trimmed.index(after: dot) < trimmed.endIndex,
+               trimmed[trimmed.index(after: dot)] == " " {
+                result.append(.numbered(String(trimmed[trimmed.index(dot, offsetBy: 2)...]), String(trimmed[..<dot])))
+                continue
+            }
+            result.append(.paragraph(trimmed))
+        }
+        if let lines = codeLines, !lines.isEmpty { result.append(.code(lines.joined(separator: "\n"))) }
+        return result
+    }
+
+    static func inline(_ s: String) -> AttributedString {
+        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(s)
+    }
+}
+
+struct MarkdownBody: View {
+    let text: String
+    let baseSize: CGFloat
+    let fontPreset: FontPreset
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(Array(Markdown.blocks(of: text).enumerated()), id: \.offset) { _, block in
+                render(block)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func render(_ block: MDBlock) -> some View {
+        switch block {
+        case .heading(let s, let level):
+            let scale: CGFloat = level == 1 ? 1.45 : (level == 2 ? 1.25 : 1.1)
+            Text(Markdown.inline(s))
+                .font(fontPreset.font(size: baseSize * scale))
+                .fontWeight(.bold)
+                .foregroundStyle(color)
+                .padding(.top, 4)
+        case .bullet(let s):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("•").font(fontPreset.font(size: baseSize)).foregroundStyle(color.opacity(0.6))
+                Text(Markdown.inline(s)).font(fontPreset.font(size: baseSize)).foregroundStyle(color)
+            }
+        case .numbered(let s, let n):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(n).").font(fontPreset.font(size: baseSize)).foregroundStyle(color.opacity(0.6))
+                Text(Markdown.inline(s)).font(fontPreset.font(size: baseSize)).foregroundStyle(color)
+            }
+        case .quote(let s):
+            HStack(alignment: .top, spacing: 8) {
+                RoundedRectangle(cornerRadius: 1.5).fill(color.opacity(0.3)).frame(width: 3)
+                Text(Markdown.inline(s)).font(fontPreset.font(size: baseSize)).italic().foregroundStyle(color.opacity(0.85))
+            }
+        case .code(let s):
+            Text(s)
+                .font(FontPreset.jetbrains.font(size: baseSize * 0.9))
+                .foregroundStyle(color)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        case .paragraph(let s):
+            Text(Markdown.inline(s)).font(fontPreset.font(size: baseSize)).foregroundStyle(color)
+        case .blank:
+            Spacer().frame(height: baseSize * 0.4)
+        }
+    }
 }
 
 // MARK: - Overlay windows
@@ -162,8 +309,38 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
     static let shared = OverlayManager()
 
     @Published var openNotes: Set<String> = []
+    @Published var sectionIndex: [String: Int] = [:]
     private var panels: [String: OverlayPanel] = [:]
     private var cascadeOffset: CGFloat = 0
+    private var interactionTimer: Timer?
+
+    private override init() {
+        super.init()
+        // Poll the physical modifier state: no accessibility permission needed,
+        // unlike a global flagsChanged event monitor.
+        interactionTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+            self?.updateInteraction()
+        }
+    }
+
+    private func updateInteraction() {
+        guard !panels.isEmpty else { return }
+        let passThroughByDefault = UserDefaults.standard.object(forKey: SettingsKeys.passThrough) as? Bool ?? true
+        let optionHeld = NSEvent.modifierFlags.contains(.option)
+        let ignores = (passThroughByDefault != optionHeld)
+        for panel in panels.values where panel.ignoresMouseEvents != ignores {
+            panel.ignoresMouseEvents = ignores
+        }
+    }
+
+    func page(_ delta: Int) {
+        for name in openNotes {
+            let count = Markdown.sections(of: NotesStore.shared.note(named: name)?.text ?? "").count
+            guard count > 1 else { continue }
+            let current = sectionIndex[name] ?? 0
+            sectionIndex[name] = min(max(current + delta, 0), count - 1)
+        }
+    }
 
     func isOpen(_ name: String) -> Bool { openNotes.contains(name) }
 
@@ -236,7 +413,7 @@ struct OverlayView: View {
     let noteName: String
     @EnvironmentObject var store: NotesStore
     @AppStorage(SettingsKeys.theme) private var themeRaw = ThemePreset.dark.rawValue
-    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
+    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.jetbrains.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
     @State private var hovering = false
@@ -244,16 +421,41 @@ struct OverlayView: View {
     private var theme: ThemePreset { ThemePreset(rawValue: themeRaw) ?? .dark }
     private var fontPreset: FontPreset { FontPreset(rawValue: fontRaw) ?? .system }
 
+    @ObservedObject private var overlays = OverlayManager.shared
+
+    private var sections: [String] {
+        Markdown.sections(of: store.note(named: noteName)?.text ?? "")
+    }
+    private var currentSection: Int {
+        min(overlays.sectionIndex[noteName] ?? 0, sections.count - 1)
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ScrollView {
-                Text(store.note(named: noteName)?.text ?? "")
-                    .font(.system(size: fontSize, design: fontPreset.design))
-                    .foregroundStyle(theme.text)
+            VStack(spacing: 0) {
+                ScrollView {
+                    MarkdownBody(
+                        text: sections[currentSection],
+                        baseSize: fontSize,
+                        fontPreset: fontPreset,
+                        color: theme.text
+                    )
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.top, 30)
                     .padding(.bottom, 12)
+                }
+                if sections.count > 1 {
+                    HStack(spacing: 5) {
+                        ForEach(0..<sections.count, id: \.self) { i in
+                            Circle()
+                                .fill(theme.text.opacity(i == currentSection ? 0.75 : 0.22))
+                                .frame(width: 6, height: 6)
+                                .onTapGesture { overlays.sectionIndex[noteName] = i }
+                        }
+                    }
+                    .padding(.bottom, 8)
+                }
             }
 
             // Header: note name + close button, fades in on hover.
@@ -299,6 +501,8 @@ struct ManagerView: View {
     @State private var selection: String?
     @State private var editingNote: String?
     @State private var pendingName = ""
+    @State private var showImporter = false
+    @State private var isDropTargeted = false
     @FocusState private var renameFieldFocused: Bool
 
     var body: some View {
@@ -316,6 +520,12 @@ struct ManagerView: View {
                         Label("New Note", systemImage: "square.and.pencil")
                     }
                     .help("New note")
+                }
+                ToolbarItem {
+                    Button { showImporter = true } label: {
+                        Label("Import", systemImage: "square.and.arrow.down")
+                    }
+                    .help("Import Markdown or text files (or just drop them into the window)")
                 }
             }
             .onChange(of: renameFieldFocused) { _, focused in
@@ -349,6 +559,49 @@ struct ManagerView: View {
             }
         }
         .onAppear { if selection == nil { selection = store.notes.first?.name } }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: importTypes, allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { importFiles(urls) }
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter { ["md", "markdown", "txt"].contains($0.pathExtension.lowercased()) }
+            guard !files.isEmpty else { return false }
+            importFiles(files)
+            return true
+        } isTargeted: { isDropTargeted = $0 }
+        .overlay {
+            if isDropTargeted {
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [8, 5]))
+                        .padding(12)
+                    VStack(spacing: 8) {
+                        Image(systemName: "arrow.down.doc")
+                            .font(.system(size: 34, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                        Text("Drop Markdown to import")
+                            .font(.title3.weight(.semibold))
+                    }
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+    }
+
+    private var importTypes: [UTType] {
+        var types: [UTType] = [.plainText]
+        if let md = UTType(filenameExtension: "md") { types.append(md) }
+        if let markdown = UTType(filenameExtension: "markdown") { types.append(markdown) }
+        return types
+    }
+
+    private func importFiles(_ urls: [URL]) {
+        var lastImported: String?
+        for url in urls {
+            if let name = store.importFile(at: url) { lastImported = name }
+        }
+        if let name = lastImported { selection = name }
     }
 
     @ViewBuilder
@@ -425,7 +678,7 @@ struct NoteEditor: View {
 
     var body: some View {
         TextEditor(text: $text)
-            .font(.system(size: 14))
+            .font(FontPreset.jetbrains.font(size: 14))
             .scrollContentBackground(.hidden)
             .padding(8)
             .navigationTitle(noteName)
@@ -457,17 +710,38 @@ struct SettingsView: View {
         TabView {
             AppearanceSettings()
                 .tabItem { Label("Appearance", systemImage: "paintbrush") }
+            BehaviorSettings()
+                .tabItem { Label("Behavior", systemImage: "cursorarrow.rays") }
             ShortcutSettings()
-                .tabItem { Label("Shortcut", systemImage: "keyboard") }
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
         }
         .frame(width: 400)
         .fixedSize(horizontal: true, vertical: false)
     }
 }
 
+struct BehaviorSettings: View {
+    @AppStorage(SettingsKeys.passThrough) private var passThroughByDefault = true
+
+    var body: some View {
+        Form {
+            Picker("Overlay mouse behavior", selection: $passThroughByDefault) {
+                Text("Click-through — hold ⌥ to interact").tag(true)
+                Text("Interactive — hold ⌥ to click through").tag(false)
+            }
+            .pickerStyle(.radioGroup)
+            Text("Click-through overlays never steal clicks: everything passes to the window below. Hold Option (⌥) to temporarily flip the behavior — drag, scroll or close the overlay, then release.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .formStyle(.grouped)
+        .padding(.bottom, 8)
+    }
+}
+
 struct AppearanceSettings: View {
     @AppStorage(SettingsKeys.theme) private var themeRaw = ThemePreset.dark.rawValue
-    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
+    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.jetbrains.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
 
@@ -506,7 +780,9 @@ struct ShortcutSettings: View {
             .onChange(of: hotKeyIndex) { _, newValue in
                 HotKeyCenter.shared.register(optionIndex: newValue)
             }
-            Text("Works globally, even when another app is active.")
+            LabeledContent("Next section", value: "⌃⌥→")
+            LabeledContent("Previous section", value: "⌃⌥←")
+            Text("All shortcuts work globally, even when another app is active. Split a note into sections with a line containing only ---.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -519,25 +795,41 @@ struct ShortcutSettings: View {
 
 final class HotKeyCenter {
     static let shared = HotKeyCenter()
-    private var hotKeyRef: EventHotKeyRef?
+    private var refs: [EventHotKeyRef?] = []
     private var handlerInstalled = false
 
     func register(optionIndex: Int) {
         let option = hotKeyOptions.indices.contains(optionIndex) ? hotKeyOptions[optionIndex] : hotKeyOptions[0]
-        if let existing = hotKeyRef {
-            UnregisterEventHotKey(existing)
-            hotKeyRef = nil
-        }
+        for ref in refs { if let ref { UnregisterEventHotKey(ref) } }
+        refs.removeAll()
+
         if !handlerInstalled {
             var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-            InstallEventHandler(GetApplicationEventTarget(), { _, _, _ -> OSStatus in
-                DispatchQueue.main.async { OverlayManager.shared.toggleAllVisibility() }
+            InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
+                var hkID = EventHotKeyID()
+                GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                  nil, MemoryLayout<EventHotKeyID>.size, nil, &hkID)
+                DispatchQueue.main.async {
+                    switch hkID.id {
+                    case 1: OverlayManager.shared.toggleAllVisibility()
+                    case 2: OverlayManager.shared.page(1)
+                    case 3: OverlayManager.shared.page(-1)
+                    default: break
+                    }
+                }
                 return noErr
             }, 1, &eventType, nil, nil)
             handlerInstalled = true
         }
-        let hotKeyID = EventHotKeyID(signature: OSType(0x534E_5453), id: 1) // "SNTS"
-        RegisterEventHotKey(option.keyCode, option.modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+
+        let signature = OSType(0x534E_5453) // "SNTS"
+        var toggleRef: EventHotKeyRef?
+        RegisterEventHotKey(option.keyCode, option.modifiers, EventHotKeyID(signature: signature, id: 1), GetApplicationEventTarget(), 0, &toggleRef)
+        var nextRef: EventHotKeyRef?
+        RegisterEventHotKey(UInt32(kVK_RightArrow), UInt32(controlKey | optionKey), EventHotKeyID(signature: signature, id: 2), GetApplicationEventTarget(), 0, &nextRef)
+        var prevRef: EventHotKeyRef?
+        RegisterEventHotKey(UInt32(kVK_LeftArrow), UInt32(controlKey | optionKey), EventHotKeyID(signature: signature, id: 3), GetApplicationEventTarget(), 0, &prevRef)
+        refs = [toggleRef, nextRef, prevRef]
     }
 }
 

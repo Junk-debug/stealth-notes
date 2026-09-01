@@ -25,26 +25,6 @@ func draw(into rep: NSBitmapImageRep, _ body: () -> Void) {
 
 let squircle = NSBezierPath(roundedRect: iconRect, xRadius: cornerRadius, yRadius: cornerRadius)
 
-// ---- Pass 0: background only (crisp squircle, no card) ----
-let bgRep = makeBitmap()
-draw(into: bgRep) {
-    NSGraphicsContext.current?.saveGraphicsState()
-    squircle.addClip()
-    NSGradient(
-        starting: NSColor(calibratedRed: 0.20, green: 0.23, blue: 0.42, alpha: 1),
-        ending: NSColor(calibratedRed: 0.09, green: 0.10, blue: 0.22, alpha: 1)
-    )!.draw(in: iconRect, angle: -90)
-    NSGraphicsContext.current?.restoreGraphicsState()
-
-    NSGraphicsContext.current?.saveGraphicsState()
-    squircle.addClip()
-    NSColor.white.withAlphaComponent(0.07).setStroke()
-    let rim = NSBezierPath(roundedRect: iconRect.insetBy(dx: 2, dy: 2), xRadius: cornerRadius - 2, yRadius: cornerRadius - 2)
-    rim.lineWidth = 4
-    rim.stroke()
-    NSGraphicsContext.current?.restoreGraphicsState()
-}
-
 // ---- Pass 1: base artwork (dark squircle + note card + text lines) ----
 let baseRep = makeBitmap()
 draw(into: baseRep) {
@@ -114,17 +94,11 @@ let blurredCG = ciContext.createCGImage(blurred, from: blurred.extent)!
 let finalRep = makeBitmap()
 draw(into: finalRep) {
     let ctx = NSGraphicsContext.current!.cgContext
-    let fullBlur = CommandLine.arguments.contains("full")
+    // Sharp base artwork.
+    ctx.draw(CIContext().createCGImage(ciBase, from: ciBase.extent)!, in: CGRect(x: 0, y: 0, width: canvas, height: canvas))
 
-    // Sharp layer: full artwork in half mode; in full mode only the crisp background
-    // (the card goes entirely behind glass, but the squircle edge must stay sharp).
-    let sharpSource = fullBlur ? CIImage(bitmapImageRep: bgRep)! : ciBase
-    ctx.draw(CIContext().createCGImage(sharpSource, from: sharpSource.extent)!, in: CGRect(x: 0, y: 0, width: canvas, height: canvas))
-
-    // Frosted glass: right half of the squircle, or the entire squircle in "full" mode.
-    let glassRect = fullBlur
-        ? iconRect
-        : CGRect(x: canvas / 2, y: iconRect.minY, width: iconRect.maxX - canvas / 2, height: iconRect.height)
+    // Frosted glass: right half of the squircle.
+    let glassRect = CGRect(x: canvas / 2, y: iconRect.minY, width: iconRect.maxX - canvas / 2, height: iconRect.height)
     NSGraphicsContext.current?.saveGraphicsState()
     squircle.addClip()
     NSBezierPath(rect: glassRect).addClip()
@@ -140,14 +114,12 @@ draw(into: finalRep) {
 
     NSGraphicsContext.current?.restoreGraphicsState()
 
-    // Crisp edge where the glass begins (half mode only).
-    if !fullBlur {
-        NSGraphicsContext.current?.saveGraphicsState()
-        squircle.addClip()
-        NSColor(calibratedRed: 0.80, green: 0.85, blue: 1.0, alpha: 0.35).setFill()
-        NSBezierPath(rect: CGRect(x: canvas / 2 - 2, y: iconRect.minY, width: 3, height: iconRect.height)).fill()
-        NSGraphicsContext.current?.restoreGraphicsState()
-    }
+    // Crisp edge where the glass begins.
+    NSGraphicsContext.current?.saveGraphicsState()
+    squircle.addClip()
+    NSColor(calibratedRed: 0.80, green: 0.85, blue: 1.0, alpha: 0.35).setFill()
+    NSBezierPath(rect: CGRect(x: canvas / 2 - 2, y: iconRect.minY, width: 3, height: iconRect.height)).fill()
+    NSGraphicsContext.current?.restoreGraphicsState()
 }
 
 let outURL = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "icon_1024.png")
