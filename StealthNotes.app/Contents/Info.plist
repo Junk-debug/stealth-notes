@@ -9,13 +9,15 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>local.stealthnotes</string>
+	<string>com.junkdebug.stealth-notes</string>
 	<key>CFBundleName</key>
 	<string>Stealth Notes</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>2.0</string>
+	<key>CFBundleVersion</key>
+	<string>21</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>
