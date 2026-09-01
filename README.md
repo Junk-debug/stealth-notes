@@ -13,11 +13,27 @@ A tiny native macOS app for presenters: float your notes above every window — 
 - **Global hotkey** — show/hide all overlays from anywhere (default ⌃⌥N, configurable).
 - **Native settings** — theme, font, text size, opacity, shortcut. Standard macOS Settings tabs.
 
+## Project layout
+
+```
+Package.swift            Swift Package Manager manifest
+build.sh                 builds and (optionally) installs Stealth Notes.app
+Sources/StealthNotes/
+  App/                   @main app, scenes, menu bar
+  Models/                Note + NotesStore (plain .txt files on disk)
+  Manager/               main window: sidebar, editor, import
+  Overlay/               floating panels, click-through logic, overlay view
+  Markdown/              parser, SwiftUI renderer, highlighting editor
+  Settings/              presets, keys, settings tabs
+  Support/               Carbon global hotkeys
+Resources/               Info.plist, AppIcon.icns, bundled fonts
+```
+
 ## Build
 
 ```bash
-swiftc -O -parse-as-library -o StealthNotes.app/Contents/MacOS/StealthNotes main.swift -framework Cocoa -framework Carbon
-cp -R StealthNotes.app "/Applications/Stealth Notes.app"
+./build.sh            # builds Stealth Notes.app
+./build.sh --install  # builds and installs into /Applications
 ```
 
 ## Icon

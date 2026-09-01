@@ -1,6 +1,3 @@
-# Build artifacts
-StealthNotes.app/Contents/MacOS/StealthNotes
-AppIcon.iconset/
-
-
+.build/
+Stealth Notes.app/
 .DS_Store
