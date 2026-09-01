@@ -374,7 +374,6 @@ struct ManagerView: View {
                 }
             }
             .contentShape(Rectangle())
-            .highPriorityGesture(TapGesture(count: 2).onEnded { startRename(note.name) })
             .contextMenu {
                 Button(overlays.isOpen(note.name) ? "Hide Overlay" : "Float on Top") {
                     overlays.toggleOverlay(for: note.name)
