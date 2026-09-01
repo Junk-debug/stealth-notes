@@ -77,12 +77,18 @@ struct ManagerView: View {
         .fileImporter(isPresented: $showImporter, allowedContentTypes: importTypes, allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { importFiles(urls) }
         }
-        .dropDestination(for: URL.self) { urls, _ in
-            let files = urls.filter { ["md", "markdown", "txt"].contains($0.pathExtension.lowercased()) }
-            guard !files.isEmpty else { return false }
-            importFiles(files)
-            return true
-        } isTargeted: { isDropTargeted = $0 }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            var accepted = false
+            for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                accepted = true
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    let url: URL? = (item as? URL) ?? (item as? Data).flatMap { URL(dataRepresentation: $0, relativeTo: nil) }
+                    guard let url, ["md", "markdown", "txt"].contains(url.pathExtension.lowercased()) else { return }
+                    DispatchQueue.main.async { importFiles([url]) }
+                }
+            }
+            return accepted
+        }
         .overlay {
             if isDropTargeted {
                 ZStack {
