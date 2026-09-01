@@ -109,12 +109,13 @@ struct HoldKeyOption {
     let cgFlags: CGEventFlags
 }
 
+// Note: options containing Control are poor defaults — macOS turns ⌃+click into a
+// right-click, which breaks dragging the overlay while the key is held.
 let holdKeyOptions: [HoldKeyOption] = [
-    HoldKeyOption(title: "⌃ Control", cgFlags: .maskControl),
-    HoldKeyOption(title: "⌥ Option", cgFlags: .maskAlternate),
     HoldKeyOption(title: "⌘ Command", cgFlags: .maskCommand),
+    HoldKeyOption(title: "⌥ Option", cgFlags: .maskAlternate),
     HoldKeyOption(title: "Fn (Globe)", cgFlags: .maskSecondaryFn),
-    HoldKeyOption(title: "⌃⌥ (Control + Option)", cgFlags: [.maskControl, .maskAlternate]),
+    HoldKeyOption(title: "⌃ Control", cgFlags: .maskControl),
 ]
 
 struct HotKeyOption {

@@ -22,26 +22,28 @@ struct ManagerView: View {
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 200)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack {
-                    Button(action: createNote) {
-                        Label("New Note", systemImage: "plus.circle.fill")
-                            .font(.system(size: 13, weight: .medium))
+                VStack(spacing: 0) {
+                    Divider()
+                    HStack {
+                        Button(action: createNote) {
+                            Label("New Note", systemImage: "plus.circle")
+                                .font(.system(size: 13))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .keyboardShortcut("n", modifiers: .command)
+                        .help("New note (⌘N)")
+                        Spacer()
+                        Button { showImporter = true } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("Import Markdown or text files (or drop them into the window)")
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .keyboardShortcut("n", modifiers: .command)
-                    .help("New note (⌘N)")
-                    Spacer()
-                    Button { showImporter = true } label: {
-                        Image(systemName: "square.and.arrow.down")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Import Markdown or text files (or drop them into the window)")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(.bar)
             }
             .onChange(of: renameFieldFocused) { _, focused in
                 if !focused, editingNote != nil { commitRename() }
