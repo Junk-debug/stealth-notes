@@ -92,7 +92,7 @@ struct OverlayView: View {
                         .foregroundStyle(theme.text.opacity(0.3))
                 }
                 Spacer()
-                if hovering {
+                if hovering && overlays.interactive {
                     Button {
                         OverlayManager.shared.close(noteName)
                     } label: {
@@ -104,6 +104,7 @@ struct OverlayView: View {
                     .help("Close overlay")
                 }
             }
+            .frame(height: 16)
             .padding(.horizontal, 14)
             .padding(.top, 10)
         }

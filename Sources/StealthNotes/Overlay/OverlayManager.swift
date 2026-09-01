@@ -15,6 +15,8 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
     @Published var sectionIndex: [String: Int] = [:]
     /// True while the hold key is making overlays interactive — drives the "you can drag me" hint.
     @Published var dragHintActive = false
+    /// True whenever overlays currently receive mouse events (any mode).
+    @Published var interactive = false
     private var panels: [String: OverlayPanel] = [:]
     private var cascadeOffset: CGFloat = 0
     private var interactionTimer: Timer?
@@ -44,6 +46,7 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
         if dragHintActive != hint {
             withAnimation(.easeInOut(duration: 0.12)) { dragHintActive = hint }
         }
+        if interactive != !ignores { interactive = !ignores }
     }
 
     /// Direction of the last page turn (+1 next / -1 previous), for the slide transition.
