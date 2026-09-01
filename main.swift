@@ -413,7 +413,7 @@ struct OverlayView: View {
     let noteName: String
     @EnvironmentObject var store: NotesStore
     @AppStorage(SettingsKeys.theme) private var themeRaw = ThemePreset.dark.rawValue
-    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.jetbrains.rawValue
+    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
     @State private var hovering = false
@@ -678,7 +678,7 @@ struct NoteEditor: View {
 
     var body: some View {
         TextEditor(text: $text)
-            .font(FontPreset.jetbrains.font(size: 14))
+            .font(.system(size: 14, design: .monospaced))
             .scrollContentBackground(.hidden)
             .padding(8)
             .navigationTitle(noteName)
@@ -741,7 +741,7 @@ struct BehaviorSettings: View {
 
 struct AppearanceSettings: View {
     @AppStorage(SettingsKeys.theme) private var themeRaw = ThemePreset.dark.rawValue
-    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.jetbrains.rawValue
+    @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
 
