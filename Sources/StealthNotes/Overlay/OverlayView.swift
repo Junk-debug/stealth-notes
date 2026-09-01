@@ -26,12 +26,12 @@ struct OverlayView: View {
     private var currentSection: Int {
         min(overlays.sectionIndex[noteName] ?? 0, sections.count - 1)
     }
-    /// If the current section starts with a heading, use it as the step title.
-    private var sectionTitle: String? {
-        if case .heading(let title, _) = Markdown.blocks(of: sections[currentSection]).first {
-            return title
-        }
-        return nil
+    /// Always the note name; the current step's heading is appended only when paging through sections.
+    private var headerTitle: String {
+        guard sections.count > 1,
+              case .heading(let title, _) = Markdown.blocks(of: sections[currentSection]).first
+        else { return noteName }
+        return "\(noteName) · \(title)"
     }
 
     var body: some View {
@@ -82,7 +82,7 @@ struct OverlayView: View {
 
             // Header: step title (or note name), counter, close — fades in on hover.
             HStack(spacing: 6) {
-                Text(sectionTitle ?? noteName)
+                Text(headerTitle)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(theme.text.opacity(0.45))
                     .lineLimit(1)
@@ -96,9 +96,14 @@ struct OverlayView: View {
                     Button {
                         OverlayManager.shared.close(noteName)
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.text.opacity(0.4))
+                        ZStack {
+                            Circle()
+                                .fill(Color(nsColor: .systemRed))
+                            Image(systemName: "xmark")
+                                .font(.system(size: 7, weight: .heavy))
+                                .foregroundStyle(.black.opacity(0.5))
+                        }
+                        .frame(width: 12, height: 12)
                     }
                     .buttonStyle(.plain)
                     .help("Close overlay")
