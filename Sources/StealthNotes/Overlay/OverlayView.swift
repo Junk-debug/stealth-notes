@@ -92,7 +92,7 @@ struct OverlayView: View {
                         .foregroundStyle(theme.text.opacity(0.3))
                 }
                 Spacer()
-                if hovering {
+                if hovering || overlays.dragHintActive {
                     Button {
                         OverlayManager.shared.close(noteName)
                     } label: {
@@ -119,8 +119,14 @@ struct OverlayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(theme.text.opacity(0.09 * backgroundOpacity), lineWidth: 1)
+                .strokeBorder(
+                    overlays.dragHintActive
+                        ? Color.accentColor.opacity(0.75)
+                        : theme.text.opacity(0.09 * backgroundOpacity),
+                    lineWidth: overlays.dragHintActive ? 1.5 : 1
+                )
         )
+        .animation(.easeInOut(duration: 0.12), value: overlays.dragHintActive)
         .scaleEffect(appeared ? 1 : 0.98)
         .opacity(appeared ? 1 : 0)
         .onAppear {
