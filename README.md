@@ -22,22 +22,15 @@ cp -R StealthNotes.app "/Applications/Stealth Notes.app"
 
 ## Icon
 
-The app icon is generated programmatically (CoreGraphics + CIGaussianBlur for the frosted-glass effect):
+The app icon ships as a static asset: `StealthNotes.app/Contents/Resources/AppIcon.icns` (preview in `docs/icon.png`). If you ever want to tweak it, `gen_icon.swift` is the script that originally drew it (CoreGraphics + CIGaussianBlur):
 
 ```bash
-swift gen_icon.swift icon_1024.png
+swift gen_icon.swift icon_1024.png   # then repack with iconutil
 ```
 
-Then pack it:
+## Fonts
 
-```bash
-mkdir AppIcon.iconset
-for s in 16 32 128 256 512; do
-  sips -z $s $s icon_1024.png --out AppIcon.iconset/icon_${s}x${s}.png
-  sips -z $((s*2)) $((s*2)) icon_1024.png --out AppIcon.iconset/icon_${s}x${s}@2x.png
-done
-iconutil -c icns AppIcon.iconset -o StealthNotes.app/Contents/Resources/AppIcon.icns
-```
+JetBrains Mono (OFL license) is bundled inside the app at `Contents/Resources/Fonts` and loaded via `ATSApplicationFontsPath` — no system installation required.
 
 ## Requirements
 
