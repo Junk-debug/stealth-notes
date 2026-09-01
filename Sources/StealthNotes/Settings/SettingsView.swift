@@ -18,29 +18,34 @@ struct SettingsView: View {
 struct AppearanceSettings: View {
     @AppStorage(SettingsKeys.theme) private var themeRaw = ThemePreset.dark.rawValue
     @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
-    @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
-    @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
+    @AppStorage(SettingsKeys.sizePreset) private var sizeRaw = SizePreset.regular.rawValue
+    @AppStorage(SettingsKeys.dim) private var dim = 0.25
     @AppStorage(SettingsKeys.renderMarkdown) private var renderMarkdown = true
     @AppStorage(SettingsKeys.editorHighlight) private var editorHighlight = true
 
     var body: some View {
         Form {
-            Picker("Theme", selection: $themeRaw) {
+            Picker("Appearance", selection: $themeRaw) {
                 ForEach(ThemePreset.allCases) { Text($0.title).tag($0.rawValue) }
             }
+            .pickerStyle(.segmented)
             Picker("Font", selection: $fontRaw) {
                 ForEach(FontPreset.allCases) { Text($0.title).tag($0.rawValue) }
             }
-            Picker("Text Size", selection: $fontSize) {
-                ForEach([13.0, 16.0, 20.0, 24.0, 28.0], id: \.self) { Text("\(Int($0)) pt").tag($0) }
+            Picker("Text Size", selection: $sizeRaw) {
+                ForEach(SizePreset.allCases) { Text($0.title).tag($0.rawValue) }
             }
-            Slider(value: $opacity, in: 0.3...1.0, step: 0.05) {
-                Text("Opacity")
+            .pickerStyle(.segmented)
+            Slider(value: $dim, in: 0.0...0.6, step: 0.05) {
+                Text("Dim")
             } minimumValueLabel: {
-                Image(systemName: "circle.dotted")
+                Image(systemName: "sun.max")
             } maximumValueLabel: {
-                Image(systemName: "circle.fill")
+                Image(systemName: "moon")
             }
+            Text("Overlays sit on the system HUD material — a real blur of whatever is behind them. Dim controls how much the glass is darkened. Stage size is meant to be readable from a distance.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
             Section {
                 Toggle("Render Markdown in overlays", isOn: $renderMarkdown)
                 Toggle("Markdown syntax highlighting in editor", isOn: $editorHighlight)

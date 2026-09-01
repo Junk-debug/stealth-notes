@@ -5,8 +5,8 @@ import Carbon.HIToolbox
 enum SettingsKeys {
     static let theme = "themePreset"
     static let font = "fontPreset"
-    static let fontSize = "overlayFontSize"
-    static let opacity = "overlayOpacity"
+    static let sizePreset = "overlaySizePreset"
+    static let dim = "overlayDim"
     static let hotKey = "hotKeyIndex"
     static let passThrough = "passThroughByDefault"
     static let renderMarkdown = "renderMarkdownInOverlays"
@@ -14,38 +14,61 @@ enum SettingsKeys {
     static let holdKey = "holdKeyIndex"
 }
 
+/// Overlays use the system HUD material; the "theme" is just its light/dark flavor.
 enum ThemePreset: String, CaseIterable, Identifiable {
-    case dark, light, midnight, sepia, matrix
+    case dark, light
     var id: String { rawValue }
+
+    /// Tolerant of legacy stored values (midnight/sepia/matrix from earlier versions).
+    static func from(_ raw: String) -> ThemePreset {
+        switch raw {
+        case "light", "sepia": return .light
+        default: return .dark
+        }
+    }
 
     var title: String {
         switch self {
         case .dark: return "Dark"
         case .light: return "Light"
-        case .midnight: return "Midnight"
-        case .sepia: return "Sepia"
-        case .matrix: return "Matrix"
-        }
-    }
-    var background: Color {
-        switch self {
-        case .dark: return Color(nsColor: .windowBackgroundColor)
-        case .light: return .white
-        case .midnight: return Color(red: 0.06, green: 0.10, blue: 0.18)
-        case .sepia: return Color(red: 0.96, green: 0.93, blue: 0.85)
-        case .matrix: return Color(red: 0.02, green: 0.05, blue: 0.02)
         }
     }
     var text: Color {
         switch self {
-        case .dark: return .white
-        case .light: return .black
-        case .midnight: return Color(red: 0.86, green: 0.90, blue: 0.96)
-        case .sepia: return Color(red: 0.36, green: 0.27, blue: 0.21)
-        case .matrix: return Color(red: 0.3, green: 0.95, blue: 0.4)
+        case .dark: return .white.opacity(0.96)
+        case .light: return .black.opacity(0.9)
         }
     }
-    var isLight: Bool { self == .light || self == .sepia }
+    var appearanceName: NSAppearance.Name { self == .light ? .aqua : .darkAqua }
+    var isLight: Bool { self == .light }
+}
+
+/// Presenter-oriented text sizes instead of raw point values.
+enum SizePreset: String, CaseIterable, Identifiable {
+    case compact, regular, stage
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .compact: return "Compact"
+        case .regular: return "Regular"
+        case .stage: return "Stage"
+        }
+    }
+    var size: CGFloat {
+        switch self {
+        case .compact: return 14
+        case .regular: return 16
+        case .stage: return 21
+        }
+    }
+    var lineSpacing: CGFloat {
+        switch self {
+        case .compact: return 3
+        case .regular: return 5
+        case .stage: return 7
+        }
+    }
 }
 
 enum FontPreset: String, CaseIterable, Identifiable {

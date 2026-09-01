@@ -39,12 +39,18 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
 
+    /// Direction of the last page turn (+1 next / -1 previous), for the slide transition.
+    @Published var pageDirection: Int = 1
+
     func page(_ delta: Int) {
-        for name in openNotes {
-            let count = Markdown.sections(of: NotesStore.shared.note(named: name)?.text ?? "").count
-            guard count > 1 else { continue }
-            let current = sectionIndex[name] ?? 0
-            sectionIndex[name] = min(max(current + delta, 0), count - 1)
+        pageDirection = delta >= 0 ? 1 : -1
+        withAnimation(.easeOut(duration: 0.15)) {
+            for name in openNotes {
+                let count = Markdown.sections(of: NotesStore.shared.note(named: name)?.text ?? "").count
+                guard count > 1 else { continue }
+                let current = sectionIndex[name] ?? 0
+                sectionIndex[name] = min(max(current + delta, 0), count - 1)
+            }
         }
     }
 

@@ -6,6 +6,7 @@ struct MarkdownBody: View {
     let baseSize: CGFloat
     let fontPreset: FontPreset
     let color: Color
+    var lineSpacing: CGFloat = 4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -13,6 +14,7 @@ struct MarkdownBody: View {
                 render(block)
             }
         }
+        .lineSpacing(lineSpacing)
     }
 
     @ViewBuilder
