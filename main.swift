@@ -170,7 +170,23 @@ enum SettingsKeys {
     static let opacity = "overlayOpacity"
     static let hotKey = "hotKeyIndex"
     static let passThrough = "passThroughByDefault"
+    static let renderMarkdown = "renderMarkdownInOverlays"
+    static let editorHighlight = "editorSyntaxHighlight"
+    static let holdKey = "holdKeyIndex"
 }
+
+struct HoldKeyOption {
+    let title: String
+    let flags: NSEvent.ModifierFlags
+}
+
+let holdKeyOptions: [HoldKeyOption] = [
+    HoldKeyOption(title: "⌃⌥ (Control + Option)", flags: [.control, .option]),
+    HoldKeyOption(title: "Fn (Globe)", flags: .function),
+    HoldKeyOption(title: "⌃ Control", flags: .control),
+    HoldKeyOption(title: "⌥ Option", flags: .option),
+    HoldKeyOption(title: "⌘ Command", flags: .command),
+]
 
 // MARK: - Markdown
 
@@ -325,9 +341,12 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
 
     private func updateInteraction() {
         guard !panels.isEmpty else { return }
-        let passThroughByDefault = UserDefaults.standard.object(forKey: SettingsKeys.passThrough) as? Bool ?? true
-        let optionHeld = NSEvent.modifierFlags.contains(.option)
-        let ignores = (passThroughByDefault != optionHeld)
+        let defaults = UserDefaults.standard
+        let passThroughByDefault = defaults.object(forKey: SettingsKeys.passThrough) as? Bool ?? true
+        let idx = defaults.integer(forKey: SettingsKeys.holdKey)
+        let holdFlags = holdKeyOptions.indices.contains(idx) ? holdKeyOptions[idx].flags : holdKeyOptions[0].flags
+        let held = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask).isSuperset(of: holdFlags)
+        let ignores = (passThroughByDefault != held)
         for panel in panels.values where panel.ignoresMouseEvents != ignores {
             panel.ignoresMouseEvents = ignores
         }
@@ -416,6 +435,7 @@ struct OverlayView: View {
     @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
+    @AppStorage(SettingsKeys.renderMarkdown) private var renderMarkdown = true
     @State private var hovering = false
 
     private var theme: ThemePreset { ThemePreset(rawValue: themeRaw) ?? .dark }
@@ -434,12 +454,20 @@ struct OverlayView: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                 ScrollView {
-                    MarkdownBody(
-                        text: sections[currentSection],
-                        baseSize: fontSize,
-                        fontPreset: fontPreset,
-                        color: theme.text
-                    )
+                    Group {
+                        if renderMarkdown {
+                            MarkdownBody(
+                                text: sections[currentSection],
+                                baseSize: fontSize,
+                                fontPreset: fontPreset,
+                                color: theme.text
+                            )
+                        } else {
+                            Text(sections[currentSection])
+                                .font(fontPreset.font(size: fontSize))
+                                .foregroundStyle(theme.text)
+                        }
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.top, 30)
@@ -674,18 +702,136 @@ struct ManagerView: View {
 struct NoteEditor: View {
     let noteName: String
     @EnvironmentObject var store: NotesStore
+    @AppStorage(SettingsKeys.editorHighlight) private var highlight = true
     @State private var text = ""
+    @State private var previewing = false
 
     var body: some View {
-        TextEditor(text: $text)
-            .font(.system(size: 14, design: .monospaced))
-            .scrollContentBackground(.hidden)
-            .padding(8)
-            .navigationTitle(noteName)
-            .onAppear { text = store.note(named: noteName)?.text ?? "" }
-            .onChange(of: text) { _, newValue in
-                store.update(name: noteName, text: newValue)
+        Group {
+            if previewing {
+                ScrollView {
+                    MarkdownBody(text: text, baseSize: 15, fontPreset: .system, color: Color(nsColor: .labelColor))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { previewing = false }
+                .help("Click to edit")
+            } else {
+                MarkdownEditor(text: $text, highlightEnabled: highlight)
+                    .padding(4)
             }
+        }
+        .navigationTitle(noteName)
+        .toolbar {
+            ToolbarItem {
+                Picker("Mode", selection: $previewing) {
+                    Text("Edit").tag(false)
+                    Text("Preview").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .help("Switch between editing and rendered preview (⌘E)")
+            }
+        }
+        .background(
+            Button("") { previewing.toggle() }
+                .keyboardShortcut("e", modifiers: .command)
+                .hidden()
+        )
+        .onAppear { text = store.note(named: noteName)?.text ?? "" }
+        .onChange(of: text) { _, newValue in
+            store.update(name: noteName, text: newValue)
+        }
+    }
+}
+
+// MARK: - Markdown editor (NSTextView with lightweight syntax highlighting)
+
+struct MarkdownEditor: NSViewRepresentable {
+    @Binding var text: String
+    var highlightEnabled: Bool
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
+        let textView = scroll.documentView as! NSTextView
+        textView.delegate = context.coordinator
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.drawsBackground = false
+        scroll.drawsBackground = false
+        textView.string = text
+        context.coordinator.highlight(textView)
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        let textView = scroll.documentView as! NSTextView
+        context.coordinator.parent = self
+        if textView.string != text {
+            textView.string = text
+            context.coordinator.highlight(textView)
+        } else if context.coordinator.lastHighlightEnabled != highlightEnabled {
+            context.coordinator.highlight(textView)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: MarkdownEditor
+        var lastHighlightEnabled: Bool?
+
+        init(_ parent: MarkdownEditor) { self.parent = parent }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+            highlight(textView)
+        }
+
+        private static let baseFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        private static let boldFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .bold)
+        private static let italicFont: NSFont =
+            NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+
+        func highlight(_ textView: NSTextView) {
+            lastHighlightEnabled = parent.highlightEnabled
+            guard let storage = textView.textStorage else { return }
+            let full = NSRange(location: 0, length: storage.length)
+            storage.beginEditing()
+            storage.setAttributes([
+                .font: Self.baseFont,
+                .foregroundColor: NSColor.labelColor,
+            ], range: full)
+
+            if parent.highlightEnabled {
+                func apply(_ pattern: String, _ attrs: [NSAttributedString.Key: Any], group: Int = 0) {
+                    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else { return }
+                    regex.enumerateMatches(in: storage.string, range: full) { match, _, _ in
+                        guard let match else { return }
+                        let range = match.range(at: group)
+                        if range.location != NSNotFound { storage.addAttributes(attrs, range: range) }
+                    }
+                }
+
+                let accent = NSColor.controlAccentColor
+                let secondary = NSColor.secondaryLabelColor
+                let codeBackground = NSColor.labelColor.withAlphaComponent(0.07)
+
+                apply(#"^#{1,3} .*$"#, [.font: Self.boldFont])
+                apply(#"^(#{1,3}) "#, [.foregroundColor: accent], group: 1)
+                apply(#"^\s*([-*]) "#, [.foregroundColor: accent], group: 1)
+                apply(#"^\s*(\d+\.) "#, [.foregroundColor: accent], group: 1)
+                apply(#"^> .*$"#, [.foregroundColor: secondary])
+                apply(#"\*\*[^*\n]+\*\*"#, [.font: Self.boldFont])
+                apply(#"(?<![*\w])\*[^*\n]+\*(?!\*)"#, [.font: Self.italicFont])
+                apply(#"`[^`\n]+`"#, [.backgroundColor: codeBackground])
+                apply(#"^---$"#, [.foregroundColor: accent])
+                apply(#"^```.*$"#, [.foregroundColor: secondary])
+            }
+            storage.endEditing()
+        }
     }
 }
 
@@ -722,15 +868,21 @@ struct SettingsView: View {
 
 struct BehaviorSettings: View {
     @AppStorage(SettingsKeys.passThrough) private var passThroughByDefault = true
+    @AppStorage(SettingsKeys.holdKey) private var holdKeyIndex = 0
+
+    private var holdTitle: String { holdKeyOptions[holdKeyIndex].title.components(separatedBy: " ").first ?? "" }
 
     var body: some View {
         Form {
             Picker("Overlay mouse behavior", selection: $passThroughByDefault) {
-                Text("Click-through — hold ⌥ to interact").tag(true)
-                Text("Interactive — hold ⌥ to click through").tag(false)
+                Text("Click-through — hold \(holdTitle) to interact").tag(true)
+                Text("Interactive — hold \(holdTitle) to click through").tag(false)
             }
             .pickerStyle(.radioGroup)
-            Text("Click-through overlays never steal clicks: everything passes to the window below. Hold Option (⌥) to temporarily flip the behavior — drag, scroll or close the overlay, then release.")
+            Picker("Hold key", selection: $holdKeyIndex) {
+                ForEach(holdKeyOptions.indices, id: \.self) { Text(holdKeyOptions[$0].title).tag($0) }
+            }
+            Text("Click-through overlays never steal clicks: everything passes to the window below. Hold the key above to temporarily flip the behavior — drag, scroll or close the overlay, then release.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -744,6 +896,8 @@ struct AppearanceSettings: View {
     @AppStorage(SettingsKeys.font) private var fontRaw = FontPreset.system.rawValue
     @AppStorage(SettingsKeys.fontSize) private var fontSize = 16.0
     @AppStorage(SettingsKeys.opacity) private var opacity = 0.85
+    @AppStorage(SettingsKeys.renderMarkdown) private var renderMarkdown = true
+    @AppStorage(SettingsKeys.editorHighlight) private var editorHighlight = true
 
     var body: some View {
         Form {
@@ -762,6 +916,10 @@ struct AppearanceSettings: View {
                 Image(systemName: "circle.dotted")
             } maximumValueLabel: {
                 Image(systemName: "circle.fill")
+            }
+            Section {
+                Toggle("Render Markdown in overlays", isOn: $renderMarkdown)
+                Toggle("Markdown syntax highlighting in editor", isOn: $editorHighlight)
             }
         }
         .formStyle(.grouped)
