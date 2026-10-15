@@ -76,7 +76,7 @@ struct BehaviorSettings: View {
     @AppStorage(SettingsKeys.passThrough) private var passThroughByDefault = true
     @AppStorage(SettingsKeys.holdKey) private var holdKeyIndex = 0
 
-    private var holdTitle: String { holdKeyOptions[holdKeyIndex].title.components(separatedBy: " ").first ?? "" }
+    private var holdTitle: String { holdKeyOption(at: holdKeyIndex).title.components(separatedBy: " ").first ?? "" }
 
     var body: some View {
         Form {

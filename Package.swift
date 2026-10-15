@@ -5,6 +5,7 @@ let package = Package(
     name: "StealthNotes",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "StealthNotes", path: "Sources/StealthNotes")
+        .executableTarget(name: "StealthNotes", path: "Sources/StealthNotes"),
+        .testTarget(name: "StealthNotesTests", dependencies: ["StealthNotes"], path: "Tests/StealthNotesTests"),
     ]
 )

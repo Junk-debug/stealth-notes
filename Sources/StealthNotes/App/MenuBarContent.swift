@@ -22,7 +22,7 @@ struct MenuBarContent: View {
             OverlayManager.shared.toggleAllVisibility()
         }
         .keyboardShortcut(.none)
-        .badge(Text(hotKeyOptions[hotKeyIndex].title))
+        .badge(Text(hotKeyOption(at: hotKeyIndex).title))
         Button("Close All Overlays") {
             OverlayManager.shared.closeAll()
         }

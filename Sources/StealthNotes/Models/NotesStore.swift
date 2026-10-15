@@ -13,7 +13,7 @@ final class NotesStore: ObservableObject {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         load()
         if notes.isEmpty {
-            _ = create(named: "Welcome", text: "Your presentation notes live here.\n\nClick the eye button in the toolbar to float this note above every window — including full-screen slides. Floating notes are invisible to screen sharing, recording and screenshots.")
+            _ = create(named: "Welcome", text: "Your presentation notes live here.\n\nClick the eye button in the toolbar to float this note above every window — including full-screen slides. Floating notes are hidden from screen sharing and screenshots.")
         }
     }
 
