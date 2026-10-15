@@ -8,7 +8,7 @@ final class HotKeyCenter {
     private var handlerInstalled = false
 
     func register(optionIndex: Int) {
-        let option = hotKeyOptions.indices.contains(optionIndex) ? hotKeyOptions[optionIndex] : hotKeyOptions[0]
+        let option = hotKeyOption(at: optionIndex)
         for ref in refs { if let ref { UnregisterEventHotKey(ref) } }
         refs.removeAll()
 

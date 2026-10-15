@@ -119,6 +119,12 @@ let holdKeyOptions: [HoldKeyOption] = [
     HoldKeyOption(title: "⌃ Control", cgFlags: .maskControl),
 ]
 
+/// Settings store option indices; fall back to the default when a stored index
+/// no longer exists (e.g. it was saved by a build with a different option list).
+func holdKeyOption(at index: Int) -> HoldKeyOption {
+    holdKeyOptions.indices.contains(index) ? holdKeyOptions[index] : holdKeyOptions[0]
+}
+
 struct HotKeyOption {
     let title: String
     let keyCode: UInt32
@@ -132,3 +138,7 @@ let hotKeyOptions: [HotKeyOption] = [
     HotKeyOption(title: "⌃⌥⌘H", keyCode: UInt32(kVK_ANSI_H), modifiers: UInt32(controlKey | optionKey | cmdKey)),
     HotKeyOption(title: "F13", keyCode: UInt32(kVK_F13), modifiers: 0),
 ]
+
+func hotKeyOption(at index: Int) -> HotKeyOption {
+    hotKeyOptions.indices.contains(index) ? hotKeyOptions[index] : hotKeyOptions[0]
+}

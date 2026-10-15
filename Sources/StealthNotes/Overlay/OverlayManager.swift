@@ -34,8 +34,7 @@ final class OverlayManager: NSObject, ObservableObject, NSWindowDelegate {
         guard !panels.isEmpty else { return }
         let defaults = UserDefaults.standard
         let passThroughByDefault = defaults.object(forKey: SettingsKeys.passThrough) as? Bool ?? true
-        let idx = defaults.integer(forKey: SettingsKeys.holdKey)
-        let holdFlags = holdKeyOptions.indices.contains(idx) ? holdKeyOptions[idx].cgFlags : holdKeyOptions[0].cgFlags
+        let holdFlags = holdKeyOption(at: defaults.integer(forKey: SettingsKeys.holdKey)).cgFlags
         let current = CGEventSource.flagsState(.combinedSessionState)
         let held = current.isSuperset(of: holdFlags)
         let ignores = (passThroughByDefault != held)

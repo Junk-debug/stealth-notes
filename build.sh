@@ -13,6 +13,10 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Resources/Fonts "$APP/Contents/Resources/Fonts"
 
+# Ad-hoc sign the whole bundle so macOS treats it as one consistent app
+# (no Apple Developer ID needed; Gatekeeper will still ask on first launch).
+codesign --force --sign - "$APP"
+
 echo "Built: $APP"
 if [[ "${1:-}" == "--install" ]]; then
     pkill -x StealthNotes || true

@@ -1,3 +1,11 @@
+# SwiftPM / Xcode
 .build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+
+# Build output
 Stealth Notes.app/
+
+# macOS
 .DS_Store
